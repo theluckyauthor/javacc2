@@ -1,0 +1,275 @@
+/**
+ * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
+*/
+
+   
+  
+options
+{
+  static = false;
+}
+
+PARSER_BEGIN(NuevoParser201820)
+package uniandes.teolen.parserJavaCC.newParser201820;
+import java.util.*; 
+public class NuevoParser201820
+{
+
+
+HashMap<String, Integer> nameTable = new HashMap<String, Integer>();
+int valorFinal;
+String print;
+
+
+/*
+Esto guarda -1 por cada nombre que sea una variable, y el número de argumentos si es una función
+*/
+  
+
+}
+
+PARSER_END(NuevoParser201820)
+
+SKIP :
+{
+  " "
+| "\r" 
+| "\t"
+| "\n"
+}
+
+TOKEN : // OPERATORS 
+{
+  < PLUS : "+" >
+| < MINUS : "-" >
+| < MULTIPLY : "*" >
+| < DIVIDE : "/" >
+| < EQ : "==" >
+| < NEQ : "!=" >
+| < LT : "<" >
+
+| < LTE: "<=" >
+| < GTE: ">=" >
+| < GT: ">" >
+
+}
+
+TOKEN :
+{
+  <INT : (< DIGIT >)+ >
+| < #DIGIT : [ "0"-"9" ] >
+| < PRINT: "print" >
+| < VAR: "var" >
+| < IF: "if" >
+| < DEFINE: "define" >
+
+| < NOT: "not" >
+| < AND: "and" >
+| < OR: "or" >
+| < NAME : (["a"-"z"])+ >
+
+}
+
+int one_line() :
+{ ArrayList <String >  nullParams =  new ArrayList <String > ();}
+{
+
+    (varDef())*
+    (funDef())*
+    < PRINT > "("  exp(nullParams)  ")"
+{  return 0;}
+}
+
+
+void varDef():
+{
+  Token  t;
+ArrayList <String >  nullParams =  new ArrayList <String > ();
+  
+}
+{
+  < VAR > t=< NAME > "=" exp(nullParams)
+  {
+     if (nameTable.get(t.image) != null)  throw new Error("Varable ya definida");
+     else  nameTable.put(t.image,-1);
+  }
+}
+
+void funDef():
+{
+  Token  t,f;
+  ArrayList <String >  params =  new ArrayList <String > ();
+  
+}
+{
+  < DEFINE > f=< NAME >"("
+              (                t = < NAME > { params.add(t.image);}
+             	( "," t = < NAME >
+   					{ if (params.indexOf(t.image) == -1)
+                        	params.add(t.image);
+                       else
+                       		throw new Error("Nombre de parámetro repetido: "+t.image);
+   					 })*
+   				)? ")" ":"
+  {
+    // se guarda el nombre y la aridad antes del cuerpo  de la funcion para permitir recursion
+    if (nameTable.get(f.image) != null)  throw new Error("Nombre ya definido: "+f.image);
+    else nameTable.put(f.image,params.size());
+  }
+  exp(params)
+}
+
+
+
+
+void exp(ArrayList <String > params) :
+{}
+{
+// Parses  E -> E + T
+//         E -> E - T
+//         E -> T
+//   in EBNF:  E -> T {+ T   | - T }
+  
+ term(params) ( < PLUS > term(params) 
+          |  < MINUS > term(params) 
+        )*
+}
+
+void term(ArrayList <String > params) :
+{}
+{
+// Parses  T -> T * F
+//         T -> T / F
+//         T -> F
+//   in EBNF:  T -> F {* F   | /  F }
+  
+ fact(params) ( < MULTIPLY > fact(params) | < DIVIDE > fact(params)
+ )*
+}
+void fact(ArrayList <String > params) :
+{
+// Parses  F -> B
+//         F -> -B
+//         B -> num
+//         B -> '(' E ')'
+//         B -> var
+//    	   B -> funName( [arg {, args }])
+//   in EBNF:  F -> [-](var |num |'(' E ')')
+}
+{
+    (< MINUS > )? ( varORcall(params) 
+                             | num()
+                             | "("exp(params) ")"
+                             |  condExp(params)
+                         )
+}
+
+
+int num() throws Error:
+{	
+	int total=1;
+	Token token;
+}
+
+{
+	(token=<INT>)
+
+	{ 
+		try {
+			total = Integer.parseInt(token.image);
+		} 
+		catch (NumberFormatException ee) 
+		{
+			// Dada la forma de <ENTERO>, sabemos que solo puede tener digitos 
+			throw new Error("Numero demasiado grande"+token.image);
+		}
+		return total;
+     }
+     
+     
+}
+
+
+void varORcall(ArrayList <String > params) throws Error:
+{	
+	int args=-1, def=-2;
+	boolean isParam=false;
+	Token token;
+}
+
+{
+	token=<NAME> {isParam = (params.indexOf(token.image) != -1); }
+    ("(" {args++; } (exp(params) {args++; } ("," exp(params) {args++; })*)? ")")?
+  {
+     
+   if (isParam) {
+	 if (args > -1)  throw new Error("Parametros no pueden ir seguidos de ( ):"+token.image);
+   }
+   else { 
+		if (nameTable.get(token.image) == null) throw new Error("Nombre indefinido: "+token.image);
+    	else { 
+			if (nameTable.get(token.image)==-1) {
+			  	if (args > -1) throw new Error("Variables no pueden ir segudas de  ():" + token.image);
+             }
+   			else {
+   			  	if (args!=nameTable.get(token.image) )
+   			  	    throw new Error("Numero de argumentos invalido: "+args+" para :"+ token.image+"/"+nameTable.get(token.image)); 
+  			}
+  		}
+	}
+  }
+}
+
+void condExp(ArrayList <String > params) throws Error:
+{}
+
+{
+    < IF > "(" boolExp(params) "," exp(params) "," exp(params) ")"   
+}
+
+
+void boolExp(ArrayList <String > params) :
+{}
+{
+// Parses  BE -> BE or BT
+//         BE -> BE
+//   in EBNF:  BE -> BT {or B }
+  
+ boolTerm(params) ( < OR > boolTerm(params))*
+}
+
+void boolTerm(ArrayList <String > params) :
+{}
+{
+// Parses  BT -> BT and BF
+//         BT -> BF
+//   in EBNF:  BT ->  BF {and BF}
+boolFact(params) ( < AND > boolFact(params))*
+}
+
+
+ 
+void boolFact(ArrayList <String > params) :
+{}
+{
+    (< NOT > )? (      "(" condExp(params) ")"
+        |  "["  exp(params)  cmpOperator()   exp(params) "]"
+   )
+}
+
+
+void cmpOperator():
+{}
+{
+   		< EQ >
+	|	< NEQ >  
+	|	< LT >   
+ 	|	< GT >
+ 	|	< LTE >  
+	|	< GTE >  
+}
+
+
+
+
+
